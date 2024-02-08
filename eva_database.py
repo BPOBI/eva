@@ -66,7 +66,7 @@ tag = (spark.read.format("jdbc")
 
 # COMMAND ----------
 
-tag.write.mode("overwrite").saveAsTable("eva.tag")
+tag.write.mode("overwrite").saveAsTable("eva.eva_tag")
 
 # COMMAND ----------
 
@@ -84,7 +84,7 @@ tag_use = (spark.read.format("jdbc")
 
 # COMMAND ----------
 
-tag_use.write.mode("overwrite").saveAsTable("eva.tag_use")
+tag_use.write.mode("overwrite").saveAsTable("eva.eva_tag_use")
 
 # COMMAND ----------
 
