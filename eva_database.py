@@ -49,7 +49,3 @@ genai_requests_usage = (spark.read.format("jdbc")
 # COMMAND ----------
 
 genai_requests_usage.write.mode("overwrite").saveAsTable("eva.eva_genai_requests_usage")
-
-# COMMAND ----------
-
-
