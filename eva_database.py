@@ -49,3 +49,43 @@ genai_requests_usage = (spark.read.format("jdbc")
 # COMMAND ----------
 
 genai_requests_usage.write.mode("overwrite").saveAsTable("eva.eva_genai_requests_usage")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC #Table3 - tag
+
+# COMMAND ----------
+
+tag = (spark.read.format("jdbc")
+       .option("url", db_fqdn)
+       .option("user", user)
+       .option("password", key)
+       .option("query", "select * from production.tag")
+       .load())
+
+# COMMAND ----------
+
+tag.write.mode("overwrite").saveAsTable("eva.tag")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC #Table4 - tag_use
+
+# COMMAND ----------
+
+tag_use = (spark.read.format("jdbc")
+       .option("url", db_fqdn)
+       .option("user", user)
+       .option("password", key)
+       .option("query", "select * from production.tag_use")
+       .load())
+
+# COMMAND ----------
+
+tag_use.write.mode("overwrite").saveAsTable("eva.tag_use")
+
+# COMMAND ----------
+
+
