@@ -103,10 +103,14 @@ max_date = min_max["max_date"]
 
 # COMMAND ----------
 
-# recreate = False
-
 target_table = "eva.report_billing"
+
+# recreate = False
 # if recreate:
 #     spark.sql(f"DROP TABLE IF EXISTS {target_table}")
 
 Billing_report.write.partitionBy("record_date").format("delta").option("mergeSchema", "true").option("replaceWhere", f"record_date >= '{min_date}' and record_date <= '{max_date}'").mode("overwrite").saveAsTable(target_table)
+
+# COMMAND ----------
+
+
