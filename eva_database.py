@@ -8,8 +8,6 @@ jdbchostname  = "35.237.254.241"
 jdbcport = 3306
 jdbcproperties = {"user": user, "password": key}
 
-tablename = 'Answer'
-
 # COMMAND ----------
 
 db_fqdn = f"jdbc:mysql://{jdbchostname}:{jdbcport}"
