@@ -35,6 +35,25 @@ def get_access_token():
 
 # COMMAND ----------
 
+from datetime import datetime, timedelta, timezone
+import pytz
+
+utc_dt = datetime.now(timezone.utc)
+est_dt = utc_dt.astimezone(pytz.timezone("Canada/Eastern"))
+est_d = est_dt.date()
+
+look_back_period = 10
+
+startDate = f"{(est_d - timedelta(days=look_back_period)).isoformat()}T00:00:00.000Z"
+endDate = f"{est_d.isoformat()}T00:00:00.000Z"
+
+startHour="0"
+endHour="23"
+
+(startDate,endDate)
+
+# COMMAND ----------
+
 import json
 from typing import List, Any
 
@@ -42,10 +61,6 @@ data_session = requests.Session()
 data_session.headers.update({'Content-type': "application/json charset=utf-8"})
 
 channelUUIDs="cd0ae4cc-5ded-4ed0-8991-37dd811940f2"
-startDate="2024-02-06T00:00:00.000Z"
-endDate="2024-02-28T00:00:00.000Z"
-startHour="0"
-endHour="23"
 
 #data_url = "https://api-americas-instance1.eva.bot/eva-dashboard/org/5f477657-7e2f-485a-95cb-196247bf97ae/env/a274da89-c104-4e2b-9186-81b4f151d96b/bot/b74fc178-ae56-463b-a793-1a40800f9f2f"
 data_url =  "https://api-americas-instance2.eva.bot/eva-dashboard/org/5f477657-7e2f-485a-95cb-196247bf97ae/env/a274da89-c104-4e2b-9186-81b4f151d96b/bot/b74fc178-ae56-463b-a793-1a40800f9f2f"

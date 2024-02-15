@@ -41,7 +41,7 @@ user_interaction = user_interaction.withColumn("record_date",user_interaction['c
 
 # COMMAND ----------
 
-genai_token_grouping = genai_token.groupBy("session_code")\
+ genai_token_grouping = genai_token.groupBy("session_code")\
     .agg(F.round(F.avg("used_tokens")).alias("token_usage"))
 
 # COMMAND ----------
