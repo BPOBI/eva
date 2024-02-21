@@ -42,7 +42,7 @@ utc_dt = datetime.now(timezone.utc)
 est_dt = utc_dt.astimezone(pytz.timezone("Canada/Eastern"))
 est_d = est_dt.date()
 
-look_back_period = 10
+look_back_period = 3
 
 startDate = f"{(est_d - timedelta(days=look_back_period)).isoformat()}T00:00:00.000Z"
 endDate = f"{est_d.isoformat()}T00:00:00.000Z"
@@ -102,7 +102,69 @@ def get_conversation_list() -> List[Any]:
         print(e)
 
 conversation_list = get_conversation_list()
-conversation_session_codes = [x["sessionCode"] for x in conversation_list]
+conversation_session_codes = [{"sessionCode": x["sessionCode"], "conversationStartedAt": x["conversationStartedAt"]} for x in conversation_list]
+
+# COMMAND ----------
+
+#conversation_detail endpoint /org/{orgUUID}/env/{envUUID}/bot/{botUUID}/conversations/details
+def get_conversation_details(args) -> Any:
+    session_code = args["sessionCode"]
+    try:
+        for attempt in Retrying(wait=wait_random_exponential(multiplier=2, max=120), stop=stop_after_attempt(2)):
+            with attempt:
+                r = data_session.get("{host}/conversations/details?sessionCode={session_code}".format(host=data_url, session_code=session_code),
+                    headers={"Authorization" : f"Bearer {access_token}"})
+                if r.status_code == 401:
+                    get_access_token()
+                    r.raise_for_status()
+                output = r.json()
+                output["original_session_code"] = session_code
+                output["conversationStartedAt"] = args["conversationStartedAt"]
+                return output
+    except Exception as e:
+        print(e)
+
+# COMMAND ----------
+
+conversation_details = []
+
+from concurrent.futures import ThreadPoolExecutor
+
+with ThreadPoolExecutor(10) as executor:
+    for conversation_detail in executor.map(get_conversation_details, conversation_session_codes):
+        conversation_details.append(conversation_detail)
+
+assert len(conversation_details) == len(conversation_session_codes), "Details and session codes len don't match"
+
+# COMMAND ----------
+
+raw_df = spark.sparkContext.parallelize(conversation_details).map(lambda x: json.dumps(x))
+df = spark.read.json(raw_df)
+
+# COMMAND ----------
+
+def channel_splitter(msg_type: str):
+   return F.transform(F.filter(F.col("messages"), lambda x: F.lower(x["type"]) == F.lit(msg_type.lower())), lambda x: x["content"])
+df = df.withColumn("left_channel", channel_splitter("TEXT")).withColumn("right_channel", channel_splitter("USER_INPUT")).withColumn("Date", to_date(col('conversationStartedAt')))
+
+# COMMAND ----------
+
+min_max = df.select(F.date_format(F.min("Date"), "yyyy-MM-dd").alias("min_date"), 
+                          F.date_format(F.max("Date"),  "yyyy-MM-dd").alias("max_date")).head()
+
+min_date = min_max["min_date"]
+max_date = min_max["max_date"]
+
+# COMMAND ----------
+
+
+
+target_table = "eva.eva_api_conversation"
+# recreate = False
+# if recreate:
+#     spark.sql(f"DROP TABLE IF EXISTS {target_table}")
+
+df.write.partitionBy("Date").format("delta").option("mergeSchema", "true").option("replaceWhere", f"Date >= '{min_date}' and conversationStartedAt <= '{max_date}'").mode("overwrite").saveAsTable(target_table)
 
 # COMMAND ----------
 
@@ -130,7 +192,7 @@ flowsTravelledName_df = (flowsTravelledName.selectExpr("channel.botUuid as botUu
 
 # COMMAND ----------
 
-tag_data = flowsTravelledName_df.select("*", F.explode_outer("tags").alias("tag")).selectExpr("*", "tag.name as tag_name","tag.uuid as tag_uuid").withColumn("Date", to_date("conversationStartedAt"))
+tag_data = flowsTravelledName_df.select("*", F.explode_outer("tags").alias("tag")).selectExpr("*", "tag.name as tag_name","tag.uuid as tag_uuid").withColumn("Date", to_date(col('conversationStartedAt')))
 
 tag_data = tag_data.where("Date is not null")
 
@@ -228,77 +290,33 @@ answerName.write.partitionBy("Date").format("delta").option("mergeSchema", "true
 
 # COMMAND ----------
 
-#conversation_detail endpoint /org/{orgUUID}/env/{envUUID}/bot/{botUUID}/conversations/details
-def get_conversation_details(session_code:str) -> Any:
-    try:
-        for attempt in Retrying(wait=wait_random_exponential(multiplier=2, max=120), stop=stop_after_attempt(2)):
-            with attempt:
-                r = data_session.get("{host}/conversations/details?sessionCode={session_code}".format(host=data_url, session_code=session_code),
-                    headers={"Authorization" : f"Bearer {access_token}"})
-                if r.status_code == 401:
-                    get_access_token()
-                    r.raise_for_status()
-                output = r.json()
-                output["original_session_code"] = session_code
-                return output
-    except Exception as e:
-        print(e)
-
-# COMMAND ----------
-
-conversation_details = []
-
-from concurrent.futures import ThreadPoolExecutor
-
-with ThreadPoolExecutor(10) as executor:
-    for conversation_detail in executor.map(get_conversation_details, conversation_session_codes):
-        conversation_details.append(conversation_detail)
-
-assert len(conversation_details) == len(conversation_session_codes), "Details and session codes len don't match"
-
-# COMMAND ----------
-
-raw_df = spark.sparkContext.parallelize(conversation_details).map(lambda x: json.dumps(x))
-df = spark.read.json(raw_df)
-
-# COMMAND ----------
-
-def channel_splitter(msg_type: str):
-   return F.transform(F.filter(F.col("messages"), lambda x: F.lower(x["type"]) == F.lit(msg_type.lower())), lambda x: x["content"])
-df = df.withColumn("left_channel", channel_splitter("TEXT")).withColumn("right_channel", channel_splitter("USER_INPUT"))
-
-# COMMAND ----------
-
 message_df = df.select("*", F.explode_outer("messages").alias("message_df")).drop("messages")
 
 # COMMAND ----------
 
-message_df = (message_df.selectExpr("channel.botUuid as botUuid","channel.name as name","channel.description as description","original_session_code as original_session_code","message_df  as message_df ","sessionCode as sessionCode","startedAt as startedAt","message_df.content as content","message_df.intent as intent","message_df.isNe as isNe","message_df.type as type","message_df.messageId as messageId","explode_outer(message_df.nlpResponses) as nlpResponse")
+message_df = (message_df.selectExpr("channel.botUuid as botUuid","channel.name as name","channel.description as description","original_session_code as original_session_code","message_df  as message_df ","sessionCode as sessionCode","message_df.content as content","message_df.intent as intent","message_df.isNe as isNe","message_df.type as type","message_df.messageId as messageId","explode_outer(message_df.nlpResponses) as nlpResponse","conversationStartedAt as conversationStartedAt", "Date as Date")
         .selectExpr("*", "nlpResponse.responseType","nlpResponse.responseName"))
 
 # COMMAND ----------
 
-display(message_df)
+# message_df.write.mode("overwrite").saveAsTable("eva.eva_api_message")
 
 # COMMAND ----------
 
-message_df.write.mode("overwrite").saveAsTable("eva.eva_api_message")
+min_max = message_df.select(F.date_format(F.min("Date"), "yyyy-MM-dd").alias("min_date"), 
+                          F.date_format(F.max("Date"),  "yyyy-MM-dd").alias("max_date")).head()
 
-# COMMAND ----------
-
-# min_max = message_df.select(F.date_format(F.min("Date"), "yyyy-MM-dd").alias("min_date"), 
-#                           F.date_format(F.max("Date"),  "yyyy-MM-dd").alias("max_date")).head()
-
-# min_date = min_max["min_date"]
-# max_date = min_max["max_date"]
+min_date = min_max["min_date"]
+max_date = min_max["max_date"]
 
 # COMMAND ----------
 
 # recreate = False
 
-# target_table = "eva.eva_api_message"
-
-# message_df.write.partitionBy("Date").format("delta").option("mergeSchema", "true").option("replaceWhere", f"Date >= '{min_date}' and Date <= '{max_date}'").mode("overwrite").saveAsTable(target_table)
+target_table = "eva.eva_api_message"
+# if recreate:
+#     spark.sql(f"DROP TABLE IF EXISTS {target_table}")
+message_df.write.partitionBy("Date").format("delta").option("mergeSchema", "true").option("replaceWhere", f"Date >= '{min_date}' and Date <= '{max_date}'").mode("overwrite").saveAsTable(target_table)
 
 # COMMAND ----------
 
