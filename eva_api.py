@@ -164,7 +164,7 @@ target_table = "eva.eva_api_conversation"
 # if recreate:
 #     spark.sql(f"DROP TABLE IF EXISTS {target_table}")
 
-df.write.partitionBy("Date").format("delta").option("mergeSchema", "true").option("replaceWhere", f"Date >= '{min_date}' and conversationStartedAt <= '{max_date}'").mode("overwrite").saveAsTable(target_table)
+df.write.partitionBy("Date").format("delta").option("mergeSchema", "true").option("replaceWhere", f"Date >= '{min_date}' and Date <= '{max_date}'").mode("overwrite").saveAsTable(target_table)
 
 # COMMAND ----------
 
