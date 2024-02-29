@@ -28,7 +28,7 @@ user_interaction = (spark.read.format("jdbc")
 
 # COMMAND ----------
 
-user_interaction.write.mode("overwrite").saveAsTable("eva.eva_user_interaction")
+user_interaction.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable("eva.eva_user_interaction")
 
 # COMMAND ----------
 
@@ -46,7 +46,7 @@ genai_requests_usage = (spark.read.format("jdbc")
 
 # COMMAND ----------
 
-genai_requests_usage.write.mode("overwrite").saveAsTable("eva.eva_genai_requests_usage")
+genai_requests_usage.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable("eva.eva_genai_requests_usage")
 
 # COMMAND ----------
 
@@ -64,7 +64,7 @@ tag = (spark.read.format("jdbc")
 
 # COMMAND ----------
 
-tag.write.mode("overwrite").saveAsTable("eva.eva_tag")
+tag.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable("eva.eva_tag")
 
 # COMMAND ----------
 
@@ -82,7 +82,7 @@ tag_use = (spark.read.format("jdbc")
 
 # COMMAND ----------
 
-tag_use.write.mode("overwrite").saveAsTable("eva.eva_tag_use")
+tag_use.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable("eva.eva_tag_use")
 
 # COMMAND ----------
 
