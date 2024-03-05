@@ -1,4 +1,9 @@
 # Databricks notebook source
+from pyspark.sql import functions as F
+from pyspark.sql.functions import concat, col, lit,when
+
+# COMMAND ----------
+
 user = dbutils.secrets.get(scope = "bpo-keyvault", key = "evausername")
 key = dbutils.secrets.get(scope = "bpo-keyvault", key = "evapassword")
 
@@ -28,7 +33,15 @@ user_interaction = (spark.read.format("jdbc")
 
 # COMMAND ----------
 
-user_interaction.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable("eva.eva_user_interaction")
+with_conversation_df = user_interaction.withColumnRenamed("text","text_original")
+
+# COMMAND ----------
+
+with_conversation_df = with_conversation_df.withColumn("text", F.regexp_replace(col('text_original'), "<.*?>", ""))
+
+# COMMAND ----------
+
+with_conversation_df.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable("eva.eva_user_interaction")
 
 # COMMAND ----------
 
