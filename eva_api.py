@@ -42,7 +42,7 @@ utc_dt = datetime.now(timezone.utc)
 est_dt = utc_dt.astimezone(pytz.timezone("Canada/Eastern"))
 est_d = est_dt.date()
 
-look_back_period = 3
+look_back_period = 30
 
 startDate = f"{(est_d - timedelta(days=look_back_period)).isoformat()}T00:00:00.000Z"
 endDate = f"{est_d.isoformat()}T00:00:00.000Z"
