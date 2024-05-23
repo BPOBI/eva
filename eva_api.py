@@ -138,8 +138,21 @@ assert len(conversation_details) == len(conversation_session_codes), "Details an
 
 # COMMAND ----------
 
-raw_df = spark.sparkContext.parallelize(conversation_details).map(lambda x: json.dumps(x))
-df = spark.read.json(raw_df)
+target_table = "eva.eva_api_conversation"
+# recreate = False
+# if recreate:
+#     spark.sql(f"DROP TABLE IF EXISTS {target_table}")
+
+# COMMAND ----------
+
+if spark.catalog.tableExists(target_table):
+    _conversation_details_str = [(json.dumps(x), ) for x in conversation_details]
+    sch = spark.table(target_table).drop("_raw_api_response").schema
+    print(f"Using Existing Table Schema For Parsing: {sch}")
+    df = (spark.createDataFrame(_conversation_details_str, ("_raw_api_response", )).withColumn("parsed", F.from_json(F.col("_raw_api_response"), sch)).select("parsed.*", "_raw_api_response"))
+else:
+    raw_df = spark.sparkContext.parallelize(conversation_details).map(lambda x: json.dumps(x))
+    df = spark.read.json(raw_df)
 
 # COMMAND ----------
 
@@ -156,13 +169,6 @@ min_date = min_max["min_date"]
 max_date = min_max["max_date"]
 
 # COMMAND ----------
-
-
-
-target_table = "eva.eva_api_conversation"
-# recreate = False
-# if recreate:
-#     spark.sql(f"DROP TABLE IF EXISTS {target_table}")
 
 df.write.partitionBy("Date").format("delta").option("mergeSchema", "true").option("replaceWhere", f"Date >= '{min_date}' and Date <= '{max_date}'").mode("overwrite").saveAsTable(target_table)
 

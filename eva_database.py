@@ -1,6 +1,6 @@
 # Databricks notebook source
 from pyspark.sql import functions as F
-from pyspark.sql.functions import concat, col, lit,when
+from pyspark.sql.functions import concat, col, lit,when, to_date
 
 # COMMAND ----------
 
